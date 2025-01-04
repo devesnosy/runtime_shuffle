@@ -1,7 +1,7 @@
 const std = @import("std");
 const expect = std.testing.expect;
 
-fn shuffle_return_type(E: type, at: type, bt: type, mt: type) type {
+fn validate_shuffle_arg_types(E: type, at: type, bt: type, mt: type) void {
     const ati = @typeInfo(at);
     const bti = @typeInfo(bt);
     const mti = @typeInfo(mt);
@@ -9,20 +9,23 @@ fn shuffle_return_type(E: type, at: type, bt: type, mt: type) type {
     if (mti.vector.child != i32) @compileError("Mask child type must be i32");
 
     if (!(ati == .vector or bti == .vector)) @compileError("a and b must be either vector or undefined");
-    if (ati == .undefined and bti == .undefined) return @Vector(mti.vector.len, E);
+    if (ati == .undefined and bti == .undefined) return;
 
     const child_type = if (ati == .undefined) bti.vector.child else ati.vector.child;
     if (child_type != E) @compileError("Vector child type must equal to type passed to shuffle");
     if (ati == .vector and bti == .vector) if (ati.vector.child != bti.vector.child) @compileError("a and be must have same child type");
-    return @Vector(mti.vector.len, E);
 }
 
-pub fn shuffle(comptime E: type, a: anytype, b: anytype, mask: anytype) shuffle_return_type(E, @TypeOf(a), @TypeOf(b), @TypeOf(mask)) {
+fn shuffle_return_type(E: type, mt: type) type {
+    return @Vector(@typeInfo(mt).vector.len, E);
+}
+
+pub fn shuffle(E: type, a: anytype, b: anytype, mask: anytype) shuffle_return_type(E, @TypeOf(mask)) {
     const UT = @TypeOf(undefined);
     const at = @TypeOf(a);
     const bt = @TypeOf(b);
     const mt = @TypeOf(mask);
-    const rt = shuffle_return_type(E, at, bt, mt);
+    validate_shuffle_arg_types(E, at, bt, mt);
 
     if (at == UT and bt == UT) return @splat(undefined);
 
@@ -31,6 +34,7 @@ pub fn shuffle(comptime E: type, a: anytype, b: anytype, mask: anytype) shuffle_
     const a_: at_ = if (at == UT) @splat(undefined) else a;
     const b_: bt_ = if (bt == UT) @splat(undefined) else b;
 
+    const rt = shuffle_return_type(E, mt);
     var res: rt = undefined;
     for (0..@typeInfo(rt).vector.len) |i| {
         const index = mask[i];
